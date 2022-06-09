@@ -4,14 +4,18 @@ See: https://docs.pytest.org/en/6.2.x/fixture.html#conftest-py-sharing-fixtures-
 
 It is thread/process safe to run with pytest-parallel, however not for pytest-xdist.
 """
+import datetime
+import json
 import logging
 import multiprocessing as mp
 import os
 import threading
 
 import pytest
+from _pytest.nodes import Item
 
 from localstack import config
+from localstack.aws.handlers.metric_collector import MetricCollector
 from localstack.config import is_env_true
 from localstack.constants import ENV_INTERNAL_TEST_RUN
 from localstack.runtime import events
@@ -71,6 +75,30 @@ def pytest_runtestloop(session):
     # trigger localstack startup in startup_monitor and wait until it becomes ready
     startup_monitor_event.set()
     localstack_started.wait()
+
+
+@pytest.hookimpl()
+def pytest_sessionfinish(
+    session,
+    exitstatus,
+) -> None:
+    if config.is_collect_metrics_mode():
+        fname = os.path.join(
+            os.path.dirname(__file__),
+            "reports",
+            f"metric-report-{datetime.datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%s')}.json",
+        )
+        with open(fname, "w") as fd:
+            fd.write(json.dumps(MetricCollector.metric_recorder, indent=2))
+
+
+@pytest.hookimpl()
+def pytest_runtest_call(item: "Item") -> None:
+    MetricCollector.node_id = item.nodeid
+    MetricCollector.xfail = False
+    for _ in item.iter_markers(name="xfail"):
+        MetricCollector.xfail = True
+    # TODO only works if tests run sequentially
 
 
 @pytest.hookimpl()

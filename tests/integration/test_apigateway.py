@@ -537,7 +537,7 @@ class TestAPIGateway:
         apigw_client = aws_stack.create_external_boto_client("apigateway")
 
         # create Lambda function
-        lambda_name = "apigw-lambda-%s" % short_uid()
+        lambda_name = f"apigw-lambda-{short_uid()}"
         self.create_lambda_function(lambda_name)
         lambda_uri = aws_stack.lambda_function_arn(lambda_name)
         target_uri = aws_stack.apigateway_invocations_arn(lambda_uri)
@@ -595,32 +595,20 @@ class TestAPIGateway:
 
         # invoke the gateway endpoint
         url = path_based_url(api_id=api_id, stage_name=self.TEST_STAGE_NAME, path="/test")
-        response = requests.get("%s?param1=foobar" % url)
+        response = requests.get(f"{url}?param1=foobar")
         assert response.status_code < 400
         content = response.json()
-        assert "GET" == content.get("httpMethod")
-        assert api_resource["id"] == content.get("requestContext", {}).get("resourceId")
-        assert self.TEST_STAGE_NAME == content.get("requestContext", {}).get("stage")
-        assert '{"param1": "foobar"}' == content.get("body")
+        assert '{"param1": "foobar"}' == content.get("body").get("body")
 
         # additional checks from https://github.com/localstack/localstack/issues/5041
         # pass Signature param
-        response = requests.get("%s?param1=foobar&Signature=1" % url)
+        response = requests.get(f"{url}?param1=foobar&Signature=1")
         assert response.status_code == 200
         content = response.json()
-        assert "GET" == content.get("httpMethod")
-        assert api_resource["id"] == content.get("requestContext", {}).get("resourceId")
-        assert self.TEST_STAGE_NAME == content.get("requestContext", {}).get("stage")
-        assert '{"param1": "foobar"}' == content.get("body")
-
-        # pass TestSignature param as well
-        response = requests.get("%s?param1=foobar&TestSignature=1" % url)
-        assert response.status_code == 200
-        content = response.json()
-        assert "GET" == content.get("httpMethod")
-        assert api_resource["id"] == content.get("requestContext", {}).get("resourceId")
-        assert self.TEST_STAGE_NAME == content.get("requestContext", {}).get("stage")
-        assert '{"param1": "foobar"}' == content.get("body")
+        assert '{"param1": "foobar"}' == content.get("body").get("body")
+        assert {"Signature": "1", "param1": "foobar"} == content.get("body").get(
+            "queryStringParameters"
+        )
 
         # delete integration
         rs = apigw_client.delete_integration(
@@ -1664,7 +1652,7 @@ class TestAPIGateway:
         )
         assert 200 == response["ResponseMetadata"]["HTTPStatusCode"]
         assert 200 == response.get("status")
-        assert "response from" in response.get("body")
+        assert "response from" in response.get("body").get("body")
 
         # run test_invoke_method API #2
         response = client.test_invoke_method(
@@ -1677,8 +1665,8 @@ class TestAPIGateway:
         )
         assert 200 == response["ResponseMetadata"]["HTTPStatusCode"]
         assert 200 == response.get("status")
-        assert "response from" in response.get("body")
-        assert "val123" in response.get("body")
+        assert "response from" in response.get("body").get("body")
+        assert "val123" in response.get("body").get("body")
 
         # Clean up
         lambda_client.delete_function(FunctionName=fn_name)

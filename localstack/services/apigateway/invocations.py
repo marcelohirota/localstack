@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 import re
@@ -25,6 +24,7 @@ from localstack.services.apigateway.helpers import (
     make_error_response,
 )
 from localstack.services.apigateway.integration import (
+    LambdaProxyIntegration,
     RequestTemplates,
     ResponseTemplates,
     SnsIntegration,
@@ -41,7 +41,7 @@ from localstack.utils.aws.aws_responses import (
     request_response_stream,
     requests_response,
 )
-from localstack.utils.common import camel_to_snake_case, json_safe, to_bytes, to_str
+from localstack.utils.common import camel_to_snake_case, json_safe
 
 # set up logger
 from localstack.utils.http import add_query_params_to_url
@@ -347,14 +347,15 @@ def invoke_rest_api_integration_backend(invocation_context: ApiInvocationContext
     if (uri.startswith("arn:aws:apigateway:") and ":lambda:path" in uri) or uri.startswith(
         "arn:aws:lambda"
     ):
-        if integration_type in ["AWS", "AWS_PROXY"]:
+        if integration_type == "AWS_PROXY":
+            return LambdaProxyIntegration().invoke(invocation_context)
+        elif integration_type == "AWS":
             func_arn = uri
             if ":lambda:path" in uri:
                 func_arn = (
                     uri.split(":lambda:path")[1].split("functions/")[1].split("/invocations")[0]
                 )
 
-            invocation_context.context = helpers.get_event_request_context(invocation_context)
             invocation_context.stage_variables = helpers.get_stage_variables(invocation_context)
             if invocation_context.authorizer_type:
                 invocation_context.context["authorizer"] = invocation_context.auth_context
@@ -390,28 +391,8 @@ def invoke_rest_api_integration_backend(invocation_context: ApiInvocationContext
                 )
                 parsed_result = common.json_safe(parsed_result)
                 parsed_result = {} if parsed_result is None else parsed_result
-
-                if integration_type == "AWS":
-                    response.status_code = 200
-                    response._content = parsed_result
-                else:
-                    response.status_code = int(parsed_result.get("statusCode", 200))
-                    parsed_headers = parsed_result.get("headers", {})
-                    if parsed_headers is not None:
-                        response.headers.update(parsed_headers)
-                    try:
-                        result_body = parsed_result.get("body")
-                        if isinstance(result_body, dict):
-                            response._content = json.dumps(result_body)
-                        else:
-                            body_bytes = to_bytes(to_str(result_body or ""))
-                            if parsed_result.get("isBase64Encoded", False):
-                                body_bytes = base64.b64decode(body_bytes)
-                            response._content = body_bytes
-                    except Exception as e:
-                        LOG.warning("Couldn't set Lambda response content: %s", e)
-                        response._content = "{}"
-                    response.multi_value_headers = parsed_result.get("multiValueHeaders") or {}
+                response.status_code = 200
+                response._content = parsed_result
                 update_content_length(response)
 
             # apply custom response template

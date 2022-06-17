@@ -24,7 +24,7 @@ from localstack.utils.aws.templating import VelocityUtil, VtlTemplate
 from localstack.utils.common import make_http_request, to_str
 from localstack.utils.json import extract_jsonpath, json_safe
 from localstack.utils.numbers import is_number, to_number
-from tests.integration.awslambda.functions.lambda_integration import to_bytes
+from localstack.utils.strings import to_bytes
 
 LOG = logging.getLogger(__name__)
 

@@ -1,8 +1,8 @@
 import pytest
 import requests
-from localstack.services.awslambda.lambda_utils import LAMBDA_RUNTIME_PYTHON39
 
 from localstack.services.apigateway.helpers import path_based_url
+from localstack.services.awslambda.lambda_utils import LAMBDA_RUNTIME_PYTHON39
 from localstack.utils.aws import aws_stack
 from localstack.utils.strings import short_uid
 from localstack.utils.testutil import create_lambda_function

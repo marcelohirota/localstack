@@ -1,8 +1,8 @@
 import pytest
 import requests
+from localstack.services.awslambda.lambda_utils import LAMBDA_RUNTIME_PYTHON39
 
 from localstack.services.apigateway.helpers import path_based_url
-from localstack.services.awslambda.lambda_utils import LAMBDA_RUNTIME_NODEJS12X
 from localstack.utils.aws import aws_stack
 from localstack.utils.strings import short_uid
 from localstack.utils.testutil import create_lambda_function
@@ -56,7 +56,7 @@ def test_lambda_aws_integration(apigateway_client):
         func_name=fn_name,
         handler_file=TEST_LAMBDA_HELLO_WORLD,
         handler="lambda_hello_world.handler",
-        runtime=LAMBDA_RUNTIME_NODEJS12X,
+        runtime=LAMBDA_RUNTIME_PYTHON39,
     )
     lambda_arn = aws_stack.lambda_function_arn(fn_name)
 
@@ -85,7 +85,7 @@ def test_lambda_aws_integration(apigateway_client):
 
     url = api_invoke_url(api_id=api_id, stage="local", path="/test")
     response = requests.get(url)
-    assert response._content == b"Hello from Lambda"
+    assert response._content == b'{"message":"Hello from Lambda"}'
 
 
 #

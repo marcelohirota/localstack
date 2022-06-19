@@ -60,25 +60,6 @@ class SnsIntegration(BackendIntegration):
             config.service_url("sns"), method="POST", headers=headers, data=payload
         )
 
-    # @classmethod
-    # def invoke(cls, invocation_context: ApiInvocationContext):
-    #     try:
-    #         request_templates = RequestTemplates()
-    #         payload = request_templates.render(invocation_context)
-    #     except Exception as e:
-    #         LOG.warning("Failed to apply template for SNS integration", e)
-    #         raise
-    #     uri = (
-    #         invocation_context.integration.get("uri")
-    #         or invocation_context.integration.get("integrationUri")
-    #         or ""
-    #     )
-    #     region_name = uri.split(":")[3]
-    #     headers = aws_stack.mock_aws_request_headers(service="sns", region_name=region_name)
-    #     return make_http_request(
-    #         config.service_url("sns"), method="POST", headers=headers, data=payload
-    #     )
-
 
 class LambdaProxyIntegration(BackendIntegration):
     @classmethod

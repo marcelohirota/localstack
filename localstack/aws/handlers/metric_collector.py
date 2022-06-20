@@ -119,7 +119,7 @@ class MetricCollector:
         response_dict = {  # this is what botocore.endpoint.convert_to_response_dict normally does
             "headers": dict(response.headers.items()),  # boto doesn't like werkzeug headers
             "status_code": response.status_code,
-            "body": response.data,
+            "body": "",  # TODO removed body to test problem with kinesis data streams response.data,
             "context": {
                 "operation_name": operation_model.name if operation_model else "",
             },

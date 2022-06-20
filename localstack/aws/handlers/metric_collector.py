@@ -72,6 +72,7 @@ class MetricCollector:
     metric_recorder_external = _init_service_metric_counter()
     node_id = None
     xfail = False
+    data = []
 
     def __init__(self) -> None:
         self.metrics = {}
@@ -138,9 +139,10 @@ class MetricCollector:
         ):
             return
 
+        is_internal = is_internal_call_context(context.request.headers)
         recorder = (
             MetricCollector.metric_recorder_internal
-            if is_internal_call_context(context.request.headers)
+            if is_internal
             else MetricCollector.metric_recorder_external
         )
 
@@ -171,3 +173,21 @@ class MetricCollector:
             test_list = ops.setdefault("tests", [])
             if MetricCollector.node_id not in test_list:
                 test_list.append(MetricCollector.node_id)
+
+        parameters = ",".join(metric.request_after_parse or "")
+        MetricCollector.data.append(
+            [
+                context.service_operation.service,
+                context.service_operation.operation,
+                parameters,
+                response.status_code,
+                str(response.data) if not str(response.status_code).startswith("2") else "",
+                metric.caught_exception.__class__ if metric.caught_exception else "",
+                MetricCollector.node_id,
+                MetricCollector.xfail,
+                "internal" if is_internal else "external",
+            ]
+        )
+
+        # cleanup
+        del self.metrics[context]

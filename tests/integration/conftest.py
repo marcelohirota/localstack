@@ -10,8 +10,10 @@ import logging
 import multiprocessing as mp
 import os
 import threading
+from typing import Optional
 
 import pytest
+from _pytest.main import Session
 from _pytest.nodes import Item
 
 from localstack import config
@@ -78,6 +80,32 @@ def pytest_runtestloop(session):
 
 
 @pytest.hookimpl()
+def pytest_sessionstart(session: "Session") -> None:
+    if config.is_collect_metrics_mode():
+        fname = os.path.join(
+            os.path.dirname(__file__),
+            "reports",
+            "metric-report-raw-data.csv",
+        )
+        with open(fname, "w") as fd:
+            import csv
+
+            header = [
+                "service",
+                "operation",
+                "parameters",
+                "response_code",
+                "response",
+                "exception",
+                "test_node_id",
+                "xfail",
+                "origin",
+            ]
+            writer = csv.writer(fd)
+            writer.writerow(header)
+
+
+@pytest.hookimpl()
 def pytest_sessionfinish(
     session,
     exitstatus,
@@ -99,6 +127,22 @@ def pytest_sessionfinish(
         )
         with open(fname, "w") as fd:
             fd.write(json.dumps(MetricCollector.metric_recorder_internal, indent=2))
+
+
+@pytest.hookimpl()
+def pytest_runtest_teardown(item: "Item", nextitem: Optional["Item"]) -> None:
+    if config.is_collect_metrics_mode():
+        fname = os.path.join(
+            os.path.dirname(__file__),
+            "reports",
+            "metric-report-raw-data.csv",
+        )
+        with open(fname, "a") as fd:
+            import csv
+
+            writer = csv.writer(fd)
+            writer.writerows(MetricCollector.data)
+            MetricCollector.data.clear()
 
 
 @pytest.hookimpl()

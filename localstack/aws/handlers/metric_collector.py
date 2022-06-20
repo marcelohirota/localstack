@@ -46,16 +46,19 @@ def _init_service_metric_counter() -> Dict:
             service = load_service(s)
             ops = {}
             for op in service.operation_names:
-                params = {}
+                attributes = {}
+                attributes["invoked"] = 0
                 if hasattr(service.operation_model(op).input_shape, "members"):
+                    params = {}
                     for n in service.operation_model(op).input_shape.members:
                         params[n] = 0
+                    attributes["parameters"] = params
                 if hasattr(service.operation_model(op), "error_shapes"):
                     exceptions = {}
                     for e in service.operation_model(op).error_shapes:
                         exceptions[e.name] = 0
-                    params["errors"] = exceptions
-                ops[op] = params
+                    attributes["errors"] = exceptions
+                ops[op] = attributes
 
             metric_recorder[s] = ops
         except Exception:
@@ -150,13 +153,14 @@ class MetricCollector:
                 ops = MetricCollector.metric_recorder[context.service_operation.service][
                     context.service_operation.operation
                 ]
+                ops["invoked"] += 1
                 if not context.service_request:
-                    ops["none"] = ops.get("none", 0) + 1
+                    ops["parameters"]["_none_"] = ops.get("_none_", 0) + 1
                 else:
                     for p in context.service_request:
                         # some params seem to be set implicitly but have 'None' value
                         if context.service_request[p] is not None:
-                            ops[p] += 1
+                            ops["parameters"][p] += 1
 
                 test_list = ops.setdefault("tests", [])
                 if MetricCollector.node_id not in test_list:

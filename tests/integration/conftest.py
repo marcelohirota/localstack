@@ -83,13 +83,22 @@ def pytest_sessionfinish(
     exitstatus,
 ) -> None:
     if config.is_collect_metrics_mode():
+        dtime = datetime.datetime.utcnow().strftime("%Y-%m-%d-%H-%M-%s")
         fname = os.path.join(
             os.path.dirname(__file__),
             "reports",
-            f"metric-report-{datetime.datetime.utcnow().strftime('%Y-%m-%d-%H-%M-%s')}.json",
+            f"metric-report-{dtime}.json",
         )
         with open(fname, "w") as fd:
-            fd.write(json.dumps(MetricCollector.metric_recorder, indent=2))
+            fd.write(json.dumps(MetricCollector.metric_recorder_external, indent=2))
+
+        fname = os.path.join(
+            os.path.dirname(__file__),
+            "reports",
+            f"metric-report-internal-calls-{dtime}.json",
+        )
+        with open(fname, "w") as fd:
+            fd.write(json.dumps(MetricCollector.metric_recorder_internal, indent=2))
 
 
 @pytest.hookimpl()

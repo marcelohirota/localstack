@@ -9,6 +9,7 @@ from localstack.aws.api import RequestContext, ServiceRequest, ServiceResponse
 from localstack.aws.chain import HandlerChain
 from localstack.http import Response
 from localstack.services.plugins import SERVICE_PLUGINS
+from localstack.utils.aws.aws_stack import is_internal_call_context
 
 LOG = logging.getLogger(__name__)
 
@@ -67,7 +68,8 @@ def _init_service_metric_counter() -> Dict:
 
 
 class MetricCollector:
-    metric_recorder = _init_service_metric_counter()
+    metric_recorder_internal = _init_service_metric_counter()
+    metric_recorder_external = _init_service_metric_counter()
     node_id = None
     xfail = False
 
@@ -135,11 +137,16 @@ class MetricCollector:
             or not context.service_operation
         ):
             return
+
+        recorder = (
+            MetricCollector.metric_recorder_internal
+            if is_internal_call_context(context.request.headers)
+            else MetricCollector.metric_recorder_external
+        )
+
         metric = self._get_metric_for_context(context)
         if metric.caught_exception:
-            ops = MetricCollector.metric_recorder[context.service_operation.service][
-                context.service_operation.operation
-            ]
+            ops = recorder[context.service_operation.service][context.service_operation.operation]
             errors = ops.setdefault("errors", {})
             if metric.caught_exception.__class__.__name__ not in errors:
                 # some errors are not explicitly in the shape, but are wrapped in a "CommonServiceException"
@@ -148,20 +155,19 @@ class MetricCollector:
                 ops.get(metric.caught_exception.__class__.__name__, 0) + 1
             )
 
-        if metric.request_after_parse and metric.http_response:
-            if not str(metric.http_response.status_code).startswith("5"):
-                ops = MetricCollector.metric_recorder[context.service_operation.service][
-                    context.service_operation.operation
-                ]
-                ops["invoked"] += 1
-                if not context.service_request:
-                    ops["parameters"]["_none_"] = ops.get("_none_", 0) + 1
-                else:
-                    for p in context.service_request:
-                        # some params seem to be set implicitly but have 'None' value
-                        if context.service_request[p] is not None:
-                            ops["parameters"][p] += 1
+        if metric.http_response and not str(metric.http_response.status_code).startswith("5"):
+            req = metric.request_after_parse
 
-                test_list = ops.setdefault("tests", [])
-                if MetricCollector.node_id not in test_list:
-                    test_list.append(MetricCollector.node_id)
+            ops = recorder[context.service_operation.service][context.service_operation.operation]
+            ops["invoked"] += 1
+            if not req:
+                ops["parameters"]["_none_"] = ops["parameters"].get("_none_", 0) + 1
+            else:
+                for p in req:
+                    # some params seem to be set implicitly but have 'None' value
+                    if req[p] is not None:
+                        ops["parameters"][p] += 1
+
+            test_list = ops.setdefault("tests", [])
+            if MetricCollector.node_id not in test_list:
+                test_list.append(MetricCollector.node_id)

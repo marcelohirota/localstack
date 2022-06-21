@@ -42,10 +42,12 @@ def _init_service_metric_counter() -> Dict:
     metric_recorder = {}
     from localstack.aws.spec import load_service
 
-    for s in SERVICE_PLUGINS.list_available():
+    for s, provider in SERVICE_PLUGINS.api_provider_specs.items():
         try:
             service = load_service(s)
             ops = {}
+            service_attributes = {"pro": "pro" in provider, "community": "default" in provider}
+            ops["service_attributes"] = service_attributes
             for op in service.operation_names:
                 attributes = {}
                 attributes["invoked"] = 0
@@ -157,8 +159,11 @@ class MetricCollector:
         )
 
         metric = self._get_metric_for_context(context)
+
+        service = recorder[context.service_operation.service]
+        ops = service[context.service_operation.operation]
+
         if metric.caught_exception:
-            ops = recorder[context.service_operation.service][context.service_operation.operation]
             errors = ops.setdefault("errors", {})
             if metric.caught_exception.__class__.__name__ not in errors:
                 # some errors are not explicitly in the shape, but are wrapped in a "CommonServiceException"
@@ -167,22 +172,19 @@ class MetricCollector:
                 ops.get(metric.caught_exception.__class__.__name__, 0) + 1
             )
 
-        if metric.http_response and not str(metric.http_response.status_code).startswith("5"):
-            req = metric.request_after_parse
+        req = metric.request_after_parse
+        ops["invoked"] += 1
+        if not req:
+            ops["parameters"]["_none_"] = ops["parameters"].get("_none_", 0) + 1
+        else:
+            for p in req:
+                # some params seem to be set implicitly but have 'None' value
+                if req[p] is not None:
+                    ops["parameters"][p] += 1
 
-            ops = recorder[context.service_operation.service][context.service_operation.operation]
-            ops["invoked"] += 1
-            if not req:
-                ops["parameters"]["_none_"] = ops["parameters"].get("_none_", 0) + 1
-            else:
-                for p in req:
-                    # some params seem to be set implicitly but have 'None' value
-                    if req[p] is not None:
-                        ops["parameters"][p] += 1
-
-            test_list = ops.setdefault("tests", [])
-            if MetricCollector.node_id not in test_list:
-                test_list.append(MetricCollector.node_id)
+        test_list = ops.setdefault("tests", [])
+        if MetricCollector.node_id not in test_list:
+            test_list.append(MetricCollector.node_id)
 
         parameters = ",".join(metric.request_after_parse or "")
         MetricCollector.data.append(
@@ -191,8 +193,10 @@ class MetricCollector:
                 context.service_operation.operation,
                 parameters,
                 response.status_code,
-                str(response.data) if not str(response.status_code).startswith("2") else "",
-                metric.caught_exception.__class__ if metric.caught_exception else "",
+                response.data.decode("utf-8")
+                if not str(response.status_code).startswith("2")
+                else "",
+                metric.caught_exception.__class__.__name__ if metric.caught_exception else "",
                 MetricCollector.node_id,
                 MetricCollector.xfail,
                 "internal" if is_internal else "external",

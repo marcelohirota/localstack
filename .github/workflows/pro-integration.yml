@@ -144,4 +144,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: metric-collection-report
-          path: ../localstack/tests/integration/reports/*.json
+          path: ../localstack/target/metric_reports/*

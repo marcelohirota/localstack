@@ -78,6 +78,8 @@ class MetricCollector:
         self.metrics = {}
 
     def create_metric(self, chain: HandlerChain, context: RequestContext, response: Response):
+        if not config.is_collect_metrics_mode():
+            return
         metric = Metric(context)
         self.metrics[context] = metric
 
@@ -87,22 +89,30 @@ class MetricCollector:
     def record_parsed_request(
         self, chain: HandlerChain, context: RequestContext, response: Response
     ):
+        if not config.is_collect_metrics_mode():
+            return
         metric = self._get_metric_for_context(context)
         metric.request_after_parse = copy.deepcopy(context.service_request)
 
     def record_dispatched_request(
         self, chain: HandlerChain, context: RequestContext, response: Response
     ):
+        if not config.is_collect_metrics_mode():
+            return
         metric = self._get_metric_for_context(context)
         metric.request_after_dispatch = copy.deepcopy(context.service_request)
 
     def record_exception(
         self, chain: HandlerChain, exception: Exception, context: RequestContext, response: Response
     ):
+        if not config.is_collect_metrics_mode():
+            return
         metric = self._get_metric_for_context(context)
         metric.caught_exception = exception
 
     def record_response(self, chain: HandlerChain, context: RequestContext, response: Response):
+        if not config.is_collect_metrics_mode():
+            return
         metric = self._get_metric_for_context(context)
 
         # check if response is set

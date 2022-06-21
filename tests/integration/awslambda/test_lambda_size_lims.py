@@ -25,6 +25,7 @@ def generate_sized_python_str(size):
 
 
 class TestLambdaSizeLimits:
+    @pytest.mark.aws_validated
     def test_oversized_lambda(self, lambda_client, s3_client, s3_bucket, lambda_su_role):
         function_name = f"test_lambda_{short_uid()}"
         bucket_key = "test_lambda.zip"
@@ -50,6 +51,7 @@ class TestLambdaSizeLimits:
             r"An error occurred \(InvalidParameterValueException\) when calling the CreateFunction operation\: Unzipped size must be smaller than [0-9]* bytes"
         )
 
+    @pytest.mark.aws_validated
     def test_large_lambda(self, lambda_client, s3_client, s3_bucket, lambda_su_role):
         function_name = f"test_lambda_{short_uid()}"
         bucket_key = "test_lambda.zip"

@@ -106,11 +106,3 @@ def check_stepfunctions(expect_shutdown=False, print_error=False):
         assert out is None
     else:
         assert out and isinstance(out.get("stateMachines"), list)
-
-
-def restart_stepfunctions():
-    if not PROCESS_THREAD:
-        return
-    LOG.debug("Restarting StepFunctions process ...")
-    PROCESS_THREAD.stop()
-    start_stepfunctions(asynchronous=True)
